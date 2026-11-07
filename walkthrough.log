@@ -1,0 +1,38 @@
+ML-KEM-768 decapsulation timing assessment -- build/run walkthrough
+2026-11-06 ~19:15 UTC first measurement run started; killed mid-way during
+kyber-ref keypair 1/5 (pyca, liboqs, Go finished 5/5 keypairs). Log preserved
+unedited as outputs/run_timing.log (copy: outputs/run_timing-2026-11-06-partial.log).
+2026-11-07 22:10 WIB task resumed; prior state verified: harness src/run_timing.py,
+timing-venv (cryptography 50.0.2), Go driver src/go-mlkem/gomlkem, Kyber driver
+src/kyber768-driver, liboqs shared library at
+the sibling liboqs build (LIBOQS_SO in src/run_timing.py) — all present; drivers smoke-tested
+(READY go=go1.24.6, READY kyber-ref).
+- FIPS 203 verified from local outputs/raw/fips-203.pdf/.txt (SHA-256
+  fe1f12f32a7e44ec9fdebbf400cda843a40b506dee676725234dc6f7923b6cac): §6.3 Algorithm 18
+  implicit rejection, §3.3 destruction of intermediate values; the words "constant
+  time" and "timing" do not appear in FIPS 203 (grep, zero hits).
+- Constant-time structure verified in source: kyber-ref ref/verify.c (constant-time
+  compare) + ref/kem.c lines 161-167 (verify + cmov secret selection); liboqs ref code
+  carries the same verify.c/cmov, but the measured liboqs path is AVX2 (build config
+  OQS_ENABLE_KEM_ml_kem_768_avx2, OQS_DIST_BUILD; CPU has AVX2+BMI2+POPCNT) — AVX2
+  path not source-verified here. Go lineage design documented at words.filippo.io/mlkem768
+  (constant-time field arithmetic, no strcmp for the rejection compare). pyca/OpenSSL
+  constant-time status not verified from a primary source — stated as unverified.
+  PQShield disclosure (Clangover CVE-2024-37880, KyberSlash) read as the caveat that
+  reference code has had real timing leaks despite constant-time-looking source.
+- Fresh full harness run 2026-11-07T15:11:25Z-15:14:52Z (22:11:25-22:14:52 WIB):
+  ./timing-venv/bin/python src/run_timing.py > outputs/run_timing-2026-11-07-fresh.log,
+  exit 0, TOTAL BATCHES 2400, TOTAL DECAPS 2400000, DONE. No suspicious pairs, no reruns.
+- Analysis: all stats/tests taken verbatim from outputs/timing-results.json (verified
+  by re-reading the JSON, not by hand). Headline: largest adversarial median difference
+  +0.400% (kyber-ref SYNTH-RAND, n.s.); Go null control +1.155% (MWU p=0.0019) exceeds
+  every Go adversarial effect; liboqs WRONGKEY Welch p=0.0006 vs median +0.017% / MWU
+  p=0.2418 (outlier-driven mean effect).
+- Pack staged under pack/ and repo contents under repo/
+  (README.md, findings.md, index.md, matrix.md, index.html, rubric.md, src/, outputs/,
+  walkthrough.log). index.html generated from timing-results.json by script and
+  sanity-checked by re-parsing the HTML and comparing every number against the JSON.
+- SHA256SUMS written over all outputs and verified (sha256sum -c: all OK).
+- Suggested public repo: mlkem-decap-timing-assessment ("ML-KEM-768 decapsulation
+  timing assessment across implementations"). Repo creation and submission are handled
+  by the parent (browser session as araupooo); nothing submitted or pushed from here.

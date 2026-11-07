@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ML-KEM-768 Decapsulation Timing Assessment</title>
+<style>
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;max-width:960px;padding:24px;line-height:1.55;color:#1a1a1a}
+h1{font-size:1.7em;line-height:1.25}h2{border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:2em}
+table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:.92em}
+th{background:#f0f0f0}.num{text-align:right}.mono{font-family:ui-monospace,Menlo,monospace;font-size:.88em;word-break:break-all}
+.score{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.score div{background:#f4f4f4;border:1px solid #ddd;border-radius:6px;padding:10px 14px}
+.score b{font-size:1.4em;display:block}.sev{font-weight:700}.low{color:#205c8a}.info{color:#5b6570}.pos{color:#0f5c4d}
+code{background:#f0f0f0;padding:1px 4px;border-radius:3px}.small{color:#555;font-size:.9em}
+</style>
+</head>
+<body>
+<h1>ML-KEM-768 Decapsulation Timing Assessment</h1>
+<p>Does decapsulation wall-clock timing reveal implicit rejection
+(FIPS 203 §6.3, Algorithm 18)? Run:
+2026-11-07T15:11:25Z–15:14:52Z (2026-11-07 22:11:25–22:14:52 WIB).
+Harness: <code>src/run_timing.py</code>. Full machine-readable results:
+<code>outputs/timing-results.json</code> (2400 batches, 2,400,000
+decapsulations). Unedited log:
+<code>outputs/run_timing-2026-11-07-fresh.log</code>. Digests:
+<code>outputs/SHA256SUMS</code>.</p>
+
+<div class="score">
+<div><b>2400</b>batches × 1000 decapsulations</div>
+<div><b>2,400,000</b>decapsulations</div>
+<div><b>0</b>suspicious pairs</div>
+<div><b>0</b>confirmation reruns</div>
+<div><b>+0.400%</b>largest adversarial median difference (kyber-ref SYNTH-RAND)</div>
+<div><b>+1.155%</b>Go null-control difference (noise floor)</div>
+</div>
+
+<h2>Headline results</h2>
+<ul>
+<li><span class="sev pos">No timing difference between valid and implicitly-rejected decapsulations in any implementation.</span> Largest adversarial median difference: +0.400% (Kyber reference, SYNTH-RAND, neither test significant). Per implementation: pyca 0.124%, liboqs 0.110%, Go 0.220%, kyber-ref 0.400%. No pair met the rerun rule (|median diff| &gt; 0.5% AND p &lt; 0.01), so no confirmation reruns were performed.</li>
+<li><span class="sev info">The noise floor is the finding for Go.</span> Go's own VALID-vs-VALID null control differs by +1.496 µs (+1.155%, Mann-Whitney p = 0.0019) — larger than every Go adversarial effect. Sub-1% effects are undetectable for Go in this environment.</li>
+<li><span class="sev info">One discordant test pair (liboqs WRONGKEY):</span> Welch's t-test flags it (p = 0.0006) while the median difference is +0.017% and Mann-Whitney does not flag it (p = 0.2418) — a mean/outlier effect from a few slow batches, not a distributional shift.</li>
+<li><span class="sev info">FIPS 203 does not mandate constant-time execution</span> (the words "constant time" and "timing" do not appear in the standard); it requires the rejection flag to be destroyed, not returned (§3.3, §6.3). A null wall-clock result is therefore not a constant-time certification — and nothing here demonstrates exploitability either.</li>
+<li>Absolute speeds (VALID median): liboqs 22.953 µs, pyca 52.187 µs, Go 129.482 µs, Kyber reference 133.157 µs.</li>
+</ul>
+
+<h2>Implementations</h2>
+<table>
+<tr><th>ID</th><th>Implementation</th><th>Version</th><th>Key encoding</th></tr>
+<tr><td>A</td><td>pyca/cryptography</td><td>50.0.2</td><td>ek 1184 B; dk as 64-byte seed (d‖z)</td></tr>
+<tr><td>B</td><td>liboqs (ML-KEM-768, built from source; AVX2 path on this CPU)</td><td>0.12.0, commit f4b9622</td><td>ek 1184 B; sk 2400 B expanded</td></tr>
+<tr><td>C</td><td>Go stdlib crypto/mlkem</td><td>go1.24.6</td><td>ek 1184 B; dk as 64-byte seed (d‖z)</td></tr>
+<tr><td>D</td><td>pq-crystals/kyber Kyber768 reference (round-3, pre-FIPS 203 — lineage reference only)</td><td>commit 3edd5af</td><td>pk 1184 B; sk 2400 B</td></tr>
+</table>
+<p class="small">D implements round-3 Kyber768, not FIPS 203 ML-KEM: its shared secrets
+are not comparable with A/B/C. Only its timing behavior is compared. The measured
+liboqs path is the pqcrystals-kyber-standard AVX2 implementation, not the reference
+C code.</p>
+
+<h2>Method</h2>
+<p>5 fresh keypairs per implementation; per keypair, 6 input classes × 20 batches ×
+1000 decapsulations; batch order shuffled per round; 200 warm-up decaps per keypair
+(discarded). Timed region: pure decapsulation. Input classes: VALID (valid
+encapsulation), FLIP1 (ct[0] bit flipped), FLIPMID (ct[543] bit flipped), WRONGKEY
+(valid ciphertext, different keypair), SYNTH-ZERO (all-zero ciphertext), SYNTH-RAND
+(random ciphertext). All times are microseconds per decapsulation (batch means,
+n=100 per implementation per class). Pairwise tests: Welch's t-test and Mann-Whitney U
+(large-sample normal approximations), 95% CI for the mean difference, Cohen's d.
+Null control: VALID batches split in half, tested VALID-vs-VALID. Rerun rule:
+|median difference| &gt; 0.5% of the VALID median AND p &lt; 0.01 — no pair met it.</p>
+
+<h2>Timing matrix</h2>
+
+<h2>A — pyca/cryptography 50.0.2 (VALID median 52.187 µs)</h2>
+<table>
+<tr><th>Class</th><th class="num">n</th><th class="num">Mean µs</th><th class="num">Median µs</th><th class="num">Stdev µs</th><th class="num">p5 µs</th><th class="num">p25 µs</th><th class="num">p75 µs</th><th class="num">p95 µs</th><th class="num">p99 µs</th></tr>
+<tr><td>VALID</td><td class="num">100</td><td class="num">53.319</td><td class="num">52.187</td><td class="num">3.393</td><td class="num">51.800</td><td class="num">51.973</td><td class="num">52.802</td><td class="num">62.487</td><td class="num">68.258</td></tr>
+<tr><td>FLIP1</td><td class="num">100</td><td class="num">53.806</td><td class="num">52.230</td><td class="num">5.156</td><td class="num">51.795</td><td class="num">51.959</td><td class="num">53.109</td><td class="num">62.420</td><td class="num">78.347</td></tr>
+<tr><td>FLIPMID</td><td class="num">100</td><td class="num">53.376</td><td class="num">52.123</td><td class="num">4.485</td><td class="num">51.835</td><td class="num">51.935</td><td class="num">52.671</td><td class="num">55.524</td><td class="num">78.000</td></tr>
+<tr><td>WRONGKEY</td><td class="num">100</td><td class="num">53.191</td><td class="num">52.144</td><td class="num">3.826</td><td class="num">51.748</td><td class="num">51.973</td><td class="num">52.819</td><td class="num">56.092</td><td class="num">62.004</td></tr>
+<tr><td>SYNTH-ZERO</td><td class="num">100</td><td class="num">53.275</td><td class="num">52.149</td><td class="num">5.464</td><td class="num">51.834</td><td class="num">51.991</td><td class="num">52.580</td><td class="num">56.028</td><td class="num">62.368</td></tr>
+<tr><td>SYNTH-RAND</td><td class="num">100</td><td class="num">53.525</td><td class="num">52.165</td><td class="num">4.058</td><td class="num">51.777</td><td class="num">51.981</td><td class="num">53.169</td><td class="num">58.528</td><td class="num">72.944</td></tr>
+</table>
+<table>
+<tr><th>Comparison</th><th class="num">Median diff µs</th><th class="num">Median diff %</th><th class="num">Welch p</th><th class="num">MWU p</th><th class="num">Cohen's d</th><th class="num">95% CI (mean diff) µs</th></tr>
+<tr><td>VALID-vs-VALID (null control)</td><td class="num">-0.142</td><td class="num">-0.273%</td><td class="num">0.5217</td><td class="num">0.4649</td><td class="num">-0.128</td><td class="num">[-1.770, +0.898]</td></tr>
+<tr><td>VALID-vs-FLIP1</td><td class="num">+0.042</td><td class="num">+0.081%</td><td class="num">0.4303</td><td class="num">0.7305</td><td class="num">-0.112</td><td class="num">[-1.697, +0.723]</td></tr>
+<tr><td>VALID-vs-FLIPMID</td><td class="num">-0.065</td><td class="num">-0.124%</td><td class="num">0.9194</td><td class="num">0.53</td><td class="num">-0.014</td><td class="num">[-1.159, +1.045]</td></tr>
+<tr><td>VALID-vs-WRONGKEY</td><td class="num">-0.043</td><td class="num">-0.082%</td><td class="num">0.8036</td><td class="num">0.9786</td><td class="num">+0.035</td><td class="num">[-0.875, +1.130]</td></tr>
+<tr><td>VALID-vs-SYNTH-ZERO</td><td class="num">-0.038</td><td class="num">-0.073%</td><td class="num">0.9457</td><td class="num">0.8317</td><td class="num">+0.010</td><td class="num">[-1.217, +1.304]</td></tr>
+<tr><td>VALID-vs-SYNTH-RAND</td><td class="num">-0.022</td><td class="num">-0.043%</td><td class="num">0.6967</td><td class="num">0.8489</td><td class="num">-0.055</td><td class="num">[-1.243, +0.831]</td></tr>
+</table>
+
+<h2>B — liboqs 0.12.0 (AVX2 path) (VALID median 22.953 µs)</h2>
+<table>
+<tr><th>Class</th><th class="num">n</th><th class="num">Mean µs</th><th class="num">Median µs</th><th class="num">Stdev µs</th><th class="num">p5 µs</th><th class="num">p25 µs</th><th class="num">p75 µs</th><th class="num">p95 µs</th><th class="num">p99 µs</th></tr>
+<tr><td>VALID</td><td class="num">100</td><td class="num">23.021</td><td class="num">22.953</td><td class="num">0.239</td><td class="num">22.779</td><td class="num">22.880</td><td class="num">23.080</td><td class="num">23.582</td><td class="num">23.834</td></tr>
+<tr><td>FLIP1</td><td class="num">100</td><td class="num">23.051</td><td class="num">22.951</td><td class="num">0.502</td><td class="num">22.770</td><td class="num">22.854</td><td class="num">23.046</td><td class="num">23.584</td><td class="num">24.686</td></tr>
+<tr><td>FLIPMID</td><td class="num">100</td><td class="num">23.199</td><td class="num">22.955</td><td class="num">2.235</td><td class="num">22.769</td><td class="num">22.863</td><td class="num">23.047</td><td class="num">23.410</td><td class="num">23.804</td></tr>
+<tr><td>WRONGKEY</td><td class="num">100</td><td class="num">23.215</td><td class="num">22.957</td><td class="num">0.509</td><td class="num">22.801</td><td class="num">22.856</td><td class="num">23.362</td><td class="num">24.276</td><td class="num">24.430</td></tr>
+<tr><td>SYNTH-ZERO</td><td class="num">100</td><td class="num">23.424</td><td class="num">22.928</td><td class="num">3.122</td><td class="num">22.775</td><td class="num">22.829</td><td class="num">23.065</td><td class="num">23.444</td><td class="num">44.900</td></tr>
+<tr><td>SYNTH-RAND</td><td class="num">100</td><td class="num">22.987</td><td class="num">22.944</td><td class="num">0.251</td><td class="num">22.738</td><td class="num">22.849</td><td class="num">23.059</td><td class="num">23.348</td><td class="num">24.050</td></tr>
+</table>
+<table>
+<tr><th>Comparison</th><th class="num">Median diff µs</th><th class="num">Median diff %</th><th class="num">Welch p</th><th class="num">MWU p</th><th class="num">Cohen's d</th><th class="num">95% CI (mean diff) µs</th></tr>
+<tr><td>VALID-vs-VALID (null control)</td><td class="num">-0.056</td><td class="num">-0.244%</td><td class="num">0.1279</td><td class="num">0.1082</td><td class="num">-0.305</td><td class="num">[-0.166, +0.021]</td></tr>
+<tr><td>VALID-vs-FLIP1</td><td class="num">-0.002</td><td class="num">-0.007%</td><td class="num">0.596</td><td class="num">0.511</td><td class="num">-0.075</td><td class="num">[-0.139, +0.080]</td></tr>
+<tr><td>VALID-vs-FLIPMID</td><td class="num">+0.002</td><td class="num">+0.008%</td><td class="num">0.4306</td><td class="num">0.4606</td><td class="num">-0.111</td><td class="num">[-0.618, +0.263]</td></tr>
+<tr><td>VALID-vs-WRONGKEY</td><td class="num">+0.004</td><td class="num">+0.017%</td><td class="num">0.0005939</td><td class="num">0.2418</td><td class="num">-0.486</td><td class="num">[-0.304, -0.083]</td></tr>
+<tr><td>VALID-vs-SYNTH-ZERO</td><td class="num">-0.025</td><td class="num">-0.110%</td><td class="num">0.1991</td><td class="num">0.1907</td><td class="num">-0.182</td><td class="num">[-1.016, +0.212]</td></tr>
+<tr><td>VALID-vs-SYNTH-RAND</td><td class="num">-0.008</td><td class="num">-0.036%</td><td class="num">0.3154</td><td class="num">0.2181</td><td class="num">+0.142</td><td class="num">[-0.033, +0.103]</td></tr>
+</table>
+
+<h2>C — Go 1.24.6 stdlib crypto/mlkem (VALID median 129.482 µs)</h2>
+<table>
+<tr><th>Class</th><th class="num">n</th><th class="num">Mean µs</th><th class="num">Median µs</th><th class="num">Stdev µs</th><th class="num">p5 µs</th><th class="num">p25 µs</th><th class="num">p75 µs</th><th class="num">p95 µs</th><th class="num">p99 µs</th></tr>
+<tr><td>VALID</td><td class="num">100</td><td class="num">130.401</td><td class="num">129.482</td><td class="num">4.064</td><td class="num">128.141</td><td class="num">128.517</td><td class="num">130.868</td><td class="num">135.513</td><td class="num">136.585</td></tr>
+<tr><td>FLIP1</td><td class="num">100</td><td class="num">131.002</td><td class="num">129.215</td><td class="num">5.415</td><td class="num">128.043</td><td class="num">128.645</td><td class="num">130.716</td><td class="num">139.059</td><td class="num">158.419</td></tr>
+<tr><td>FLIPMID</td><td class="num">100</td><td class="num">130.526</td><td class="num">129.365</td><td class="num">3.974</td><td class="num">128.008</td><td class="num">128.582</td><td class="num">131.100</td><td class="num">135.653</td><td class="num">147.923</td></tr>
+<tr><td>WRONGKEY</td><td class="num">100</td><td class="num">130.466</td><td class="num">129.359</td><td class="num">4.151</td><td class="num">128.058</td><td class="num">128.651</td><td class="num">130.566</td><td class="num">133.580</td><td class="num">152.334</td></tr>
+<tr><td>SYNTH-ZERO</td><td class="num">100</td><td class="num">131.797</td><td class="num">129.766</td><td class="num">6.980</td><td class="num">128.147</td><td class="num">128.783</td><td class="num">131.430</td><td class="num">143.475</td><td class="num">165.757</td></tr>
+<tr><td>SYNTH-RAND</td><td class="num">100</td><td class="num">130.595</td><td class="num">129.530</td><td class="num">3.304</td><td class="num">128.060</td><td class="num">128.859</td><td class="num">131.057</td><td class="num">140.125</td><td class="num">142.379</td></tr>
+</table>
+<table>
+<tr><th>Comparison</th><th class="num">Median diff µs</th><th class="num">Median diff %</th><th class="num">Welch p</th><th class="num">MWU p</th><th class="num">Cohen's d</th><th class="num">95% CI (mean diff) µs</th></tr>
+<tr><td>VALID-vs-VALID (null control)</td><td class="num">+1.496</td><td class="num">+1.155%</td><td class="num">0.01624</td><td class="num">0.001921</td><td class="num">+0.481</td><td class="num">[+0.352, +3.464]</td></tr>
+<tr><td>VALID-vs-FLIP1</td><td class="num">-0.267</td><td class="num">-0.206%</td><td class="num">0.3748</td><td class="num">0.8202</td><td class="num">-0.126</td><td class="num">[-1.928, +0.726]</td></tr>
+<tr><td>VALID-vs-FLIPMID</td><td class="num">-0.117</td><td class="num">-0.090%</td><td class="num">0.8263</td><td class="num">0.6477</td><td class="num">-0.031</td><td class="num">[-1.239, +0.989]</td></tr>
+<tr><td>VALID-vs-WRONGKEY</td><td class="num">-0.123</td><td class="num">-0.095%</td><td class="num">0.9112</td><td class="num">0.9883</td><td class="num">-0.016</td><td class="num">[-1.203, +1.074]</td></tr>
+<tr><td>VALID-vs-SYNTH-ZERO</td><td class="num">+0.284</td><td class="num">+0.220%</td><td class="num">0.08387</td><td class="num">0.09859</td><td class="num">-0.244</td><td class="num">[-2.979, +0.187]</td></tr>
+<tr><td>VALID-vs-SYNTH-RAND</td><td class="num">+0.048</td><td class="num">+0.037%</td><td class="num">0.7116</td><td class="num">0.2747</td><td class="num">-0.052</td><td class="num">[-1.220, +0.833]</td></tr>
+</table>
+
+<h2>D — pq-crystals/kyber Kyber768 reference (lineage reference, pre-FIPS 203) (VALID median 133.157 µs)</h2>
+<table>
+<tr><th>Class</th><th class="num">n</th><th class="num">Mean µs</th><th class="num">Median µs</th><th class="num">Stdev µs</th><th class="num">p5 µs</th><th class="num">p25 µs</th><th class="num">p75 µs</th><th class="num">p95 µs</th><th class="num">p99 µs</th></tr>
+<tr><td>VALID</td><td class="num">100</td><td class="num">134.868</td><td class="num">133.157</td><td class="num">5.986</td><td class="num">131.519</td><td class="num">132.457</td><td class="num">134.649</td><td class="num">143.508</td><td class="num">162.835</td></tr>
+<tr><td>FLIP1</td><td class="num">100</td><td class="num">134.677</td><td class="num">133.225</td><td class="num">5.197</td><td class="num">131.714</td><td class="num">132.434</td><td class="num">134.897</td><td class="num">140.259</td><td class="num">164.155</td></tr>
+<tr><td>FLIPMID</td><td class="num">100</td><td class="num">134.257</td><td class="num">133.337</td><td class="num">4.859</td><td class="num">131.638</td><td class="num">132.438</td><td class="num">134.634</td><td class="num">136.647</td><td class="num">160.368</td></tr>
+<tr><td>WRONGKEY</td><td class="num">100</td><td class="num">136.064</td><td class="num">133.236</td><td class="num">16.786</td><td class="num">131.938</td><td class="num">132.643</td><td class="num">134.836</td><td class="num">139.298</td><td class="num">166.599</td></tr>
+<tr><td>SYNTH-ZERO</td><td class="num">100</td><td class="num">134.534</td><td class="num">133.222</td><td class="num">5.184</td><td class="num">131.717</td><td class="num">132.493</td><td class="num">134.511</td><td class="num">137.754</td><td class="num">161.157</td></tr>
+<tr><td>SYNTH-RAND</td><td class="num">100</td><td class="num">134.951</td><td class="num">133.690</td><td class="num">5.390</td><td class="num">131.665</td><td class="num">132.728</td><td class="num">135.004</td><td class="num">144.078</td><td class="num">162.277</td></tr>
+</table>
+<table>
+<tr><th>Comparison</th><th class="num">Median diff µs</th><th class="num">Median diff %</th><th class="num">Welch p</th><th class="num">MWU p</th><th class="num">Cohen's d</th><th class="num">95% CI (mean diff) µs</th></tr>
+<tr><td>VALID-vs-VALID (null control)</td><td class="num">+0.226</td><td class="num">+0.170%</td><td class="num">0.4394</td><td class="num">0.4607</td><td class="num">-0.155</td><td class="num">[-3.279, +1.424]</td></tr>
+<tr><td>VALID-vs-FLIP1</td><td class="num">+0.069</td><td class="num">+0.051%</td><td class="num">0.8094</td><td class="num">0.6285</td><td class="num">+0.034</td><td class="num">[-1.363, +1.745]</td></tr>
+<tr><td>VALID-vs-FLIPMID</td><td class="num">+0.181</td><td class="num">+0.136%</td><td class="num">0.4277</td><td class="num">0.8393</td><td class="num">+0.112</td><td class="num">[-0.900, +2.123]</td></tr>
+<tr><td>VALID-vs-WRONGKEY</td><td class="num">+0.079</td><td class="num">+0.059%</td><td class="num">0.5023</td><td class="num">0.3188</td><td class="num">-0.095</td><td class="num">[-4.689, +2.297]</td></tr>
+<tr><td>VALID-vs-SYNTH-ZERO</td><td class="num">+0.066</td><td class="num">+0.049%</td><td class="num">0.6733</td><td class="num">0.8508</td><td class="num">+0.060</td><td class="num">[-1.218, +1.886]</td></tr>
+<tr><td>VALID-vs-SYNTH-RAND</td><td class="num">+0.533</td><td class="num">+0.400%</td><td class="num">0.9176</td><td class="num">0.1011</td><td class="num">-0.015</td><td class="num">[-1.662, +1.496]</td></tr>
+</table>
+
+
+<h2>Findings</h2>
+<ul>
+<li><b>F-1 — Informational (method):</b> the Go null control drifts more than any adversarial effect — the noise floor, not a leak. Go VALID-vs-VALID: +1.496 µs (+1.155%), MWU p = 0.0019; largest Go adversarial difference is SYNTH-ZERO at +0.220%.</li>
+<li><b>F-2 — Informational:</b> liboqs WRONGKEY is discordant — Welch p = 0.0006 but median difference +0.017% and MWU p = 0.2418; a mean/outlier effect, which is why the protocol requires median + rank agreement.</li>
+<li><b>F-3 — Positive:</b> no timing difference between valid and implicitly-rejected decapsulations in any implementation (20 pairs, largest median difference +0.400%, none suspicious).</li>
+<li><b>F-4 — Informational:</b> absolute speeds differ widely; liboqs (AVX2) is fastest at 22.953 µs VALID median, ~5.6× faster than Go.</li>
+<li><b>F-5 — Caveat:</b> a null wall-clock result is not proof of constant-time execution, and not proof of exploitability either. FIPS 203 does not mandate constant-time execution; the Kyber/ML-KEM reference lineage has had real timing leaks despite constant-time-looking source (Clangover, CVE-2024-37880; KyberSlash).</li>
+<li><b>F-6 — Informational:</b> constant-time structure verified in source for the Kyber reference (<code>verify()</code> + <code>cmov()</code> in <code>kem.c</code>); the liboqs AVX2 path actually measured was not source-verified here; pyca/OpenSSL constant-time status was not verified from a primary source in this run.</li>
+</ul>
+<p>Full severity-ranked findings: <code>findings.md</code>. Claim-to-evidence index: <code>index.md</code>. Protocol and FIPS 203 requirements: <code>rubric.md</code>. Per-class statistics and tests: <code>matrix.md</code>.</p>
+
+<h2>Environment</h2>
+<p class="mono">CPU: AMD EPYC 9D25 126-Core Processor, 4 vCPUs; Python 3.12.3; Linux-7.0.0-43-generic-x86_64-with-glibc2.39; perf_counter resolution 1e-09 s; load average at start 0.21, 0.29, 0.27; at end 1.05, 0.71, 0.45.</p>
+<p class="small">An earlier partial run (2026-11-06, killed during kyber-ref keypair 1/5) is preserved unedited as <code>outputs/run_timing.log</code> (identical copy <code>outputs/run_timing-2026-11-06-partial.log</code>); no result in this pack uses it.</p>
+</body>
+</html>
