@@ -1,0 +1,54 @@
+ML-KEM-768 decapsulation timing -- summary
+generated_utc: 2026-11-07T15:11:25Z
+total_batches: 2400 x 1000 reps = 2400000 decaps
+
+go-stdlib-crypto-mlkem|FLIP1: n=100 mean=131.002 median=129.215 stdev=5.415 p5=128.043 p95=139.059 us
+go-stdlib-crypto-mlkem|FLIPMID: n=100 mean=130.526 median=129.365 stdev=3.974 p5=128.008 p95=135.653 us
+go-stdlib-crypto-mlkem|SYNTH-RAND: n=100 mean=130.595 median=129.530 stdev=3.304 p5=128.060 p95=140.125 us
+go-stdlib-crypto-mlkem|SYNTH-ZERO: n=100 mean=131.797 median=129.766 stdev=6.980 p5=128.147 p95=143.475 us
+go-stdlib-crypto-mlkem|VALID: n=100 mean=130.401 median=129.482 stdev=4.064 p5=128.141 p95=135.513 us
+go-stdlib-crypto-mlkem|WRONGKEY: n=100 mean=130.466 median=129.359 stdev=4.151 p5=128.058 p95=133.580 us
+kyber-ref|FLIP1: n=100 mean=134.677 median=133.225 stdev=5.197 p5=131.714 p95=140.259 us
+kyber-ref|FLIPMID: n=100 mean=134.257 median=133.337 stdev=4.859 p5=131.638 p95=136.647 us
+kyber-ref|SYNTH-RAND: n=100 mean=134.951 median=133.690 stdev=5.390 p5=131.665 p95=144.078 us
+kyber-ref|SYNTH-ZERO: n=100 mean=134.534 median=133.222 stdev=5.184 p5=131.717 p95=137.754 us
+kyber-ref|VALID: n=100 mean=134.868 median=133.157 stdev=5.986 p5=131.519 p95=143.508 us
+kyber-ref|WRONGKEY: n=100 mean=136.064 median=133.236 stdev=16.786 p5=131.938 p95=139.298 us
+liboqs|FLIP1: n=100 mean=23.051 median=22.951 stdev=0.502 p5=22.770 p95=23.584 us
+liboqs|FLIPMID: n=100 mean=23.199 median=22.955 stdev=2.235 p5=22.769 p95=23.410 us
+liboqs|SYNTH-RAND: n=100 mean=22.987 median=22.944 stdev=0.251 p5=22.738 p95=23.348 us
+liboqs|SYNTH-ZERO: n=100 mean=23.424 median=22.928 stdev=3.122 p5=22.775 p95=23.444 us
+liboqs|VALID: n=100 mean=23.021 median=22.953 stdev=0.239 p5=22.779 p95=23.582 us
+liboqs|WRONGKEY: n=100 mean=23.215 median=22.957 stdev=0.509 p5=22.801 p95=24.276 us
+pyca-cryptography|FLIP1: n=100 mean=53.806 median=52.230 stdev=5.156 p5=51.795 p95=62.420 us
+pyca-cryptography|FLIPMID: n=100 mean=53.376 median=52.123 stdev=4.485 p5=51.835 p95=55.524 us
+pyca-cryptography|SYNTH-RAND: n=100 mean=53.525 median=52.165 stdev=4.058 p5=51.777 p95=58.528 us
+pyca-cryptography|SYNTH-ZERO: n=100 mean=53.275 median=52.149 stdev=5.464 p5=51.834 p95=56.028 us
+pyca-cryptography|VALID: n=100 mean=53.319 median=52.187 stdev=3.393 p5=51.800 p95=62.487 us
+pyca-cryptography|WRONGKEY: n=100 mean=53.191 median=52.144 stdev=3.826 p5=51.748 p95=56.092 us
+
+tests (VALID vs adversarial, batch means in us):
+pyca-cryptography VALID-vs-VALID (null control): median_diff=-0.142 us (-0.273%) welch p=0.5217 mwu p=0.4649 d=-0.128
+pyca-cryptography VALID-vs-FLIP1: median_diff=+0.042 us (+0.081%) welch p=0.4303 mwu p=0.7305 d=-0.112
+pyca-cryptography VALID-vs-FLIPMID: median_diff=-0.065 us (-0.124%) welch p=0.9194 mwu p=0.53 d=-0.014
+pyca-cryptography VALID-vs-WRONGKEY: median_diff=-0.043 us (-0.082%) welch p=0.8036 mwu p=0.9786 d=+0.035
+pyca-cryptography VALID-vs-SYNTH-ZERO: median_diff=-0.038 us (-0.073%) welch p=0.9457 mwu p=0.8317 d=+0.010
+pyca-cryptography VALID-vs-SYNTH-RAND: median_diff=-0.022 us (-0.043%) welch p=0.6967 mwu p=0.8489 d=-0.055
+liboqs VALID-vs-VALID (null control): median_diff=-0.056 us (-0.244%) welch p=0.1279 mwu p=0.1082 d=-0.305
+liboqs VALID-vs-FLIP1: median_diff=-0.002 us (-0.007%) welch p=0.596 mwu p=0.511 d=-0.075
+liboqs VALID-vs-FLIPMID: median_diff=+0.002 us (+0.008%) welch p=0.4306 mwu p=0.4606 d=-0.111
+liboqs VALID-vs-WRONGKEY: median_diff=+0.004 us (+0.017%) welch p=0.0005939 mwu p=0.2418 d=-0.486
+liboqs VALID-vs-SYNTH-ZERO: median_diff=-0.025 us (-0.110%) welch p=0.1991 mwu p=0.1907 d=-0.182
+liboqs VALID-vs-SYNTH-RAND: median_diff=-0.008 us (-0.036%) welch p=0.3154 mwu p=0.2181 d=+0.142
+go-stdlib-crypto-mlkem VALID-vs-VALID (null control): median_diff=+1.496 us (+1.155%) welch p=0.01624 mwu p=0.001921 d=+0.481
+go-stdlib-crypto-mlkem VALID-vs-FLIP1: median_diff=-0.267 us (-0.206%) welch p=0.3748 mwu p=0.8202 d=-0.126
+go-stdlib-crypto-mlkem VALID-vs-FLIPMID: median_diff=-0.117 us (-0.090%) welch p=0.8263 mwu p=0.6477 d=-0.031
+go-stdlib-crypto-mlkem VALID-vs-WRONGKEY: median_diff=-0.123 us (-0.095%) welch p=0.9112 mwu p=0.9883 d=-0.016
+go-stdlib-crypto-mlkem VALID-vs-SYNTH-ZERO: median_diff=+0.284 us (+0.220%) welch p=0.08387 mwu p=0.09859 d=-0.244
+go-stdlib-crypto-mlkem VALID-vs-SYNTH-RAND: median_diff=+0.048 us (+0.037%) welch p=0.7116 mwu p=0.2747 d=-0.052
+kyber-ref VALID-vs-VALID (null control): median_diff=+0.226 us (+0.170%) welch p=0.4394 mwu p=0.4607 d=-0.155
+kyber-ref VALID-vs-FLIP1: median_diff=+0.069 us (+0.051%) welch p=0.8094 mwu p=0.6285 d=+0.034
+kyber-ref VALID-vs-FLIPMID: median_diff=+0.181 us (+0.136%) welch p=0.4277 mwu p=0.8393 d=+0.112
+kyber-ref VALID-vs-WRONGKEY: median_diff=+0.079 us (+0.059%) welch p=0.5023 mwu p=0.3188 d=-0.095
+kyber-ref VALID-vs-SYNTH-ZERO: median_diff=+0.066 us (+0.049%) welch p=0.6733 mwu p=0.8508 d=+0.060
+kyber-ref VALID-vs-SYNTH-RAND: median_diff=+0.533 us (+0.400%) welch p=0.9176 mwu p=0.1011 d=-0.015
